@@ -1,18 +1,37 @@
+"""
+Copyright (c) [2024] Hiroshi Thomas. 
+
+License: [GNU General Public License]
+You should have received a copy of the GNU General Public License
+
+Purpose: Checks source folder for new images and converts them to monochrome
+and the correct size for ePaper display.
+
+Further documentation:
+- https://github.com/iCyberia/E-Ink-Photo-Processor
+
+Usage examples:
+- Runs on Rapsberry Pi Zero W with Waveshare 3.7in E-Ink Display
+"""
+
 from PIL import Image, ImageOps
 import os
-import tkinter as tk
-from tkinter import filedialog
+import json
 
-def browse_and_process_image():
-    # Open a file dialog to browse and select a photo
-    root = tk.Tk()
-    root.withdraw()  # Hide the root window
-    file_path = filedialog.askopenfilename(title="Select a photo", filetypes=[("Image files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif")])
-    
-    if not file_path:
-        print("No file selected.")
-        return
+# Path to the folder to monitor
+folder_to_watch = "/home/hdt71/e-Paper/RaspberryPi_JetsonNano/python/pic"
 
+# Path to save the processed images
+processed_folder = "/home/hdt71/e-Paper/RaspberryPi_JetsonNano/python/pic/processed"
+
+# Supported image file extensions
+image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
+
+# Ensure the processed folder exists
+os.makedirs(processed_folder, exist_ok=True)
+
+# Function to process the image
+def process_image(file_path):
     # Open the image
     img = Image.open(file_path)
 
@@ -39,14 +58,30 @@ def browse_and_process_image():
         right = left + 480
         img = img.crop((left, 0, right, new_height))
 
-    # Rotate clockwise
-    img = img.rotate(-90, expand=True)
+    # Rotate clockwise if the image is in landscape (horizontal) orientation
+    if img.width > img.height:
+        img = img.rotate(-90, expand=True)
 
-    # Save the modified photo as a copy in the same directory
-    base, ext = os.path.splitext(file_path)
-    new_file_path = f"{base}_processed{ext}"
+    # Save the modified photo as a copy in the processed directory
+    base = os.path.basename(file_path)
+    name, ext = os.path.splitext(base)
+    new_file_path = os.path.join(processed_folder, f"{name}_processed{ext}")
     img.save(new_file_path)
     print(f"Processed image saved as {new_file_path}")
 
+# Main function to monitor and process new files
+def main():
+    current_files = set(os.listdir(folder_to_watch))
+    processed_files = set(os.listdir(processed_folder))
+
+    for filename in current_files:
+        file_path = os.path.join(folder_to_watch, filename)
+        if os.path.isfile(file_path) and os.path.splitext(filename)[1].lower() in image_extensions:
+            # Check if the processed file already exists
+            base, ext = os.path.splitext(filename)
+            processed_filename = f"{base}_processed{ext}"
+            if processed_filename not in processed_files:
+                process_image(file_path)
+
 if __name__ == "__main__":
-    browse_and_process_image()
+    main()
